@@ -47,8 +47,14 @@ function PlayerData.Setup(player)
 				for _, entry in ipairs(result.Roster) do
 					if #session.Roster >= Config.PADS_PER_PLOT then break end
 					if type(entry) == "table" and type(entry.Id) == "string"
-						and Config.CHARACTERS_BY_ID[entry.Id] and type(entry.Gold) == "boolean" then
-						table.insert(session.Roster, { Id = entry.Id, Gold = entry.Gold })
+						and Config.CHARACTERS_BY_ID[entry.Id] then
+						local mutation = nil
+						if type(entry.Mutation) == "string" and Config.MUTATIONS[entry.Mutation] then
+							mutation = entry.Mutation
+						elseif entry.Gold == true then
+							mutation = "Gold"
+						end
+						table.insert(session.Roster, { Id = entry.Id, Mutation = mutation })
 					end
 				end
 			end

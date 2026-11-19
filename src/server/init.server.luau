@@ -29,12 +29,44 @@ end
 local HudState = getRemote("HudState")
 local WaveState = getRemote("WaveState")
 local Notice = getRemote("Notice")
+
+-- Lighting polish: warm afternoon light, shadows, a touch of bloom and haze.
+local Lighting = game:GetService("Lighting")
+Lighting.ClockTime = 14.5
+Lighting.Brightness = 2
+Lighting.GlobalShadows = true
+Lighting.Ambient = Color3.fromRGB(110, 115, 135)
+Lighting.OutdoorAmbient = Color3.fromRGB(150, 155, 175)
+if not Lighting:FindFirstChildOfClass("Atmosphere") then
+	local atmosphere = Instance.new("Atmosphere")
+	atmosphere.Density = 0.22
+	atmosphere.Haze = 1.4
+	atmosphere.Color = Color3.fromRGB(199, 220, 255)
+	atmosphere.Decay = Color3.fromRGB(110, 130, 180)
+	atmosphere.Parent = Lighting
+end
+if not Lighting:FindFirstChildOfClass("BloomEffect") then
+	local bloom = Instance.new("BloomEffect")
+	bloom.Intensity = 0.4
+	bloom.Size = 24
+	bloom.Threshold = 0.9
+	bloom.Parent = Lighting
+end
+if not Lighting:FindFirstChildOfClass("SunRaysEffect") then
+	local sunRays = Instance.new("SunRaysEffect")
+	sunRays.Intensity = 0.06
+	sunRays.Spread = 0.7
+	sunRays.Parent = Lighting
+end
+
 local world = WorldBuilder.Build()
 local plotOwner = {}
 local placedByPlayer = {}
 local carriedByPlayer = {}
 local wildEntries = {}
 local setupPlayers = {}
+local lockedUntil = {}
+local wallsLit = {}
 
 local function notice(player, message) Notice:FireClient(player, message) end
 local function noticeAll(message) Notice:FireAllClients(message) end
@@ -59,7 +91,12 @@ local function randomCharacterOfRarity(rarityName)
 	return matches[math.random(1, #matches)]
 end
 
-local function rollGold() return math.random() < Config.GOLD_CHANCE end
+local function rollMutation()
+	for _, name in ipairs(Config.MUTATION_ROLL_ORDER) do
+		if math.random() < Config.MUTATIONS[name].Chance then return name end
+	end
+	return nil
+end
 
 local function findPlot(player)
 	for _, plot in ipairs(world.Plots) do
@@ -86,7 +123,7 @@ local function syncRoster(player)
 		if plotOwner[plot.Index] == player then
 			for _, pad in ipairs(plot.Pads) do
 				local entry = (placedByPlayer[player] or {})[pad]
-				if entry then table.insert(roster, { Id = entry.Def.Id, Gold = entry.Gold }) end
+				if entry then table.insert(roster, { Id = entry.Def.Id, Mutation = entry.Mutation }) end
 			end
 		end
 	end
@@ -103,11 +140,12 @@ local function sellPlaced(player, pad)
 	syncRoster(player)
 end
 
-local function placeFigureOnPad(player, plot, pad, def, gold)
+local trySteal
+local function placeFigureOnPad(player, plot, pad, def, mutation)
 	if not plot or plotOwner[plot.Index] ~= player then return false end
 	placedByPlayer[player] = placedByPlayer[player] or {}
 	if placedByPlayer[player][pad] then return false end
-	local model = BrainrotFactory.CreateFigure(def, gold)
+	local model = BrainrotFactory.CreateFigure(def, mutation)
 	model.Parent = world.Folder
 	model:PivotTo(CFrame.new(pad.Position + Vector3.new(0, pad.Size.Y / 2, 0)))
 	local primaryPart = model.PrimaryPart
@@ -120,15 +158,23 @@ local function placeFigureOnPad(player, plot, pad, def, gold)
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = primaryPart
 	prompt.Triggered:Connect(function(triggeringPlayer) sellPlaced(player, pad) end)
-	placedByPlayer[player][pad] = { Model = model, Def = def, Gold = gold }
+	local stealPrompt = Instance.new("ProximityPrompt")
+	stealPrompt.Name = "StealPrompt"
+	stealPrompt.ActionText = "Steal"
+	stealPrompt.ObjectText = def.Name
+	stealPrompt.MaxActivationDistance = 12
+	stealPrompt.RequiresLineOfSight = false
+	stealPrompt.Parent = primaryPart
+	stealPrompt.Triggered:Connect(function(triggeringPlayer) trySteal(triggeringPlayer, player, pad) end)
+	placedByPlayer[player][pad] = { Model = model, Def = def, Mutation = mutation }
 	syncRoster(player)
 	return true
 end
 
-local function placeFigure(player, def, gold)
+local function placeFigure(player, def, mutation)
 	local plot, pad = findFreePad(player)
 	if not plot or not pad then return false end
-	return placeFigureOnPad(player, plot, pad, def, gold)
+	return placeFigureOnPad(player, plot, pad, def, mutation)
 end
 
 local function randomMeadowPoint()
@@ -186,15 +232,47 @@ tryPickup = function(player, entry)
 	if humanoid then humanoid.WalkSpeed = Config.CARRY_WALKSPEED end
 end
 
+trySteal = function(thief, owner, pad)
+	if thief == owner then return end
+	if carriedByPlayer[thief] then notice(thief, "Your hands are full!"); return end
+	local placed = placedByPlayer[owner]
+	local entry = placed and placed[pad]
+	if not entry then return end
+	if lockedUntil[owner] and os.clock() < lockedUntil[owner] then
+		notice(thief, "🔒 That base is locked!")
+		return
+	end
+	placed[pad] = nil
+	syncRoster(owner)
+	local model = entry.Model
+	local primaryPart = model.PrimaryPart
+	if primaryPart then
+		for _, child in ipairs(primaryPart:GetChildren()) do
+			if child:IsA("ProximityPrompt") then child:Destroy() end
+		end
+	end
+	local wildEntry = {
+		Model = model, Def = entry.Def, Mutation = entry.Mutation,
+		TargetPos = randomMeadowPoint(), PauseUntil = 0,
+		Phase = math.random() * math.pi * 2, CarriedBy = thief, Stolen = true,
+	}
+	table.insert(wildEntries, wildEntry)
+	carriedByPlayer[thief] = wildEntry
+	local humanoid = thief.Character and thief.Character:FindFirstChildOfClass("Humanoid")
+	if humanoid then humanoid.WalkSpeed = Config.CARRY_WALKSPEED end
+	notice(owner, "🚨 " .. thief.DisplayName .. " stole your " .. entry.Def.Name .. "!")
+	notice(thief, "You stole a " .. entry.Def.Name .. " — run it home!")
+end
+
 local function spawnWild()
 	local rarity = rollRarity(Config.WILD_WEIGHTS)
 	local def = randomCharacterOfRarity(rarity)
-	local gold = rollGold()
-	local model = BrainrotFactory.CreateFigure(def, gold)
+	local mutation = rollMutation()
+	local model = BrainrotFactory.CreateFigure(def, mutation)
 	model.Parent = world.Folder
 	local position = randomMeadowPoint()
 	model:PivotTo(CFrame.new(position) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
-	local entry = { Model = model, Def = def, Gold = gold, TargetPos = randomMeadowPoint(), PauseUntil = 0, Phase = math.random() * math.pi * 2, CarriedBy = nil }
+	local entry = { Model = model, Def = def, Mutation = mutation, TargetPos = randomMeadowPoint(), PauseUntil = 0, Phase = math.random() * math.pi * 2, CarriedBy = nil }
 	table.insert(wildEntries, entry)
 	addGrabPrompt(entry)
 end
@@ -223,11 +301,39 @@ local function setupPlotPrompts()
 				if not carried then return end
 				if placedByPlayer[player] and placedByPlayer[player][pad] then notice(player, "That pad is taken!"); return end
 				releaseCarried(player, true)
-				if not placeFigureOnPad(player, plot, pad, carried.Def, carried.Gold) then
+				if not placeFigureOnPad(player, plot, pad, carried.Def, carried.Mutation) then
 					notice(player, "That pad is taken!")
 				end
 			end)
 		end
+	end
+end
+
+local function setWallsLocked(plot, on)
+	for _, wall in ipairs(plot.Walls) do
+		wall.Transparency = on and 0.15 or 0.78
+		wall.Color = on and Color3.fromRGB(110, 215, 255) or plot.WallColor
+	end
+end
+
+local function setupLockPrompts()
+	for _, plot in ipairs(world.Plots) do
+		local prompt = addPrompt(plot.LockButton, "LockPrompt", "Lock Base", "60s protection", 12)
+		prompt.Triggered:Connect(function(player)
+			if plotOwner[plot.Index] ~= player then
+				notice(player, "This is not your base!")
+				return
+			end
+			local now = os.clock()
+			if lockedUntil[player] and now < lockedUntil[player] then
+				notice(player, "Already locked — " .. math.ceil(lockedUntil[player] - now) .. "s left")
+				return
+			end
+			lockedUntil[player] = now + Config.LOCK_DURATION_SECONDS
+			wallsLit[player] = true
+			setWallsLocked(plot, true)
+			notice(player, "🔒 Base locked for " .. Config.LOCK_DURATION_SECONDS .. " seconds!")
+		end)
 	end
 end
 
@@ -247,9 +353,9 @@ local function setupShop()
 			PlayerData.AddCash(player, -tier.Price)
 			local rarity = rollRarity(tier.Weights)
 			local def = randomCharacterOfRarity(rarity)
-			local gold = rollGold()
-			if placeFigure(player, def, gold) then
-				notice(player, "Hatched " .. def.Name .. " (" .. rarity .. ")" .. (gold and " ★ GOLD!" or ""))
+			local mutation = rollMutation()
+			if placeFigure(player, def, mutation) then
+				notice(player, "Hatched " .. def.Name .. " (" .. rarity .. ")" .. (mutation and (" ★ " .. string.upper(mutation) .. "!") or ""))
 			end
 		end)
 	end
@@ -298,7 +404,12 @@ local function setupPlayer(player)
 	if setupPlayers[player] then return end
 	setupPlayers[player] = true
 	PlayerData.Setup(player)
-	assignPlot(player)
+	local plot = assignPlot(player)
+	if plot then
+		lockedUntil[player] = os.clock() + Config.LOCK_SPAWN_PROTECTION_SECONDS
+		wallsLit[player] = true
+		setWallsLocked(plot, true)
+	end
 	placedByPlayer[player] = {}
 	local function restoreRoster(loadedPlayer)
 		if loadedPlayer ~= player or not player.Parent then return end
@@ -306,7 +417,7 @@ local function setupPlayer(player)
 		if not session then return end
 		for _, saved in ipairs(session.Roster) do
 			local def = Config.CHARACTERS_BY_ID[saved.Id]
-			if def and not placeFigure(player, def, saved.Gold) then break end
+			if def and not placeFigure(player, def, saved.Mutation or (saved.Gold and "Gold")) then break end
 		end
 	end
 	PlayerData.Loaded.Event:Connect(restoreRoster)
@@ -321,10 +432,13 @@ local function cleanupPlayer(player)
 	if carriedByPlayer[player] then releaseCarried(player, true) end
 	for _, entry in pairs(placedByPlayer[player] or {}) do entry.Model:Destroy() end
 	placedByPlayer[player] = nil
+	lockedUntil[player] = nil
+	wallsLit[player] = nil
 	for _, plot in ipairs(world.Plots) do
 		if plotOwner[plot.Index] == player then
 			plotOwner[plot.Index] = nil
 			plot.SignText.Text = "EMPTY BASE"
+			setWallsLocked(plot, false)
 		end
 	end
 	setupPlayers[player] = nil
@@ -333,7 +447,7 @@ end
 local function incomeOf(player)
 	local total = 0
 	for _, entry in pairs(placedByPlayer[player] or {}) do
-		total += entry.Def.Income * (entry.Gold and Config.GOLD_INCOME_MULTIPLIER or 1)
+		total += entry.Def.Income * (entry.Mutation and Config.MUTATIONS[entry.Mutation].Multiplier or 1)
 	end
 	return math.floor(total * PlayerData.IncomeMultiplier(player))
 end
@@ -349,6 +463,7 @@ local function isInWild(position)
 end
 
 setupPlotPrompts()
+setupLockPrompts()
 setupShop()
 setupRebirth()
 Players.PlayerAdded:Connect(setupPlayer)
@@ -390,8 +505,28 @@ end)
 
 task.spawn(function()
 	while true do
+		task.wait(0.3)
+		local color = Color3.fromHSV((os.clock() * 0.12) % 1, 0.6, 1)
+		for _, model in ipairs(world.Folder:GetChildren()) do
+			if model:IsA("Model") and model:GetAttribute("Mutation") == "Rainbow" then
+				for _, part in ipairs(model:GetDescendants()) do
+					if part.Name == "TintPart" then part.Color = color end
+				end
+			end
+		end
+	end
+end)
+
+task.spawn(function()
+	while true do
 		task.wait(1)
 		for _, player in ipairs(Players:GetPlayers()) do
+			if wallsLit[player] and lockedUntil[player] and os.clock() >= lockedUntil[player] then
+				wallsLit[player] = nil
+				lockedUntil[player] = nil
+				local plot = findPlot(player)
+				if plot then setWallsLocked(plot, false) end
+			end
 			local session = PlayerData.Get(player)
 			if session then
 				local income = incomeOf(player)

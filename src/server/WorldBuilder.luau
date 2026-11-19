@@ -15,9 +15,9 @@ local function makePart(parent, name, size, cframe, color, material)
 	return part
 end
 
-local function makeDisc(parent, name, diameter, height, centerY, color)
+local function makeDisc(parent, name, diameter, height, centerY, color, material)
 	return makePart(parent, name, Vector3.new(height, diameter, diameter),
-		CFrame.new(0, centerY, 0) * CFrame.Angles(0, 0, math.rad(90)), color, Enum.Material.SmoothPlastic)
+		CFrame.new(0, centerY, 0) * CFrame.Angles(0, 0, math.rad(90)), color, material or Enum.Material.SmoothPlastic)
 end
 
 local function makeBillboard(adornee, name, text, size, fontSize)
@@ -50,12 +50,12 @@ function WorldBuilder.Build()
 	worldFolder.Name = "BrainrotWorld"
 	worldFolder.Parent = workspace
 
-	local water = makePart(worldFolder, "Water", Vector3.new(1600, 2, 1600), CFrame.new(0, -3.4, 0), Color3.fromRGB(38, 110, 210), Enum.Material.SmoothPlastic)
+	local water = makePart(worldFolder, "Water", Vector3.new(1600, 2, 1600), CFrame.new(0, -3.4, 0), Color3.fromRGB(38, 110, 210), Enum.Material.Glass)
 	water.Transparency = 0.3
 	water.CanCollide = false
-	makeDisc(worldFolder, "Beach", 424, 3, -3.2, Color3.fromRGB(233, 206, 150))
-	makeDisc(worldFolder, "Grass", 400, 4, -2, Color3.fromRGB(94, 186, 82))
-	makeDisc(worldFolder, "Plaza", 64, 0.6, 0.3, Color3.fromRGB(158, 158, 164))
+	makeDisc(worldFolder, "Beach", 424, 3, -3.2, Color3.fromRGB(233, 206, 150), Enum.Material.Sand)
+	makeDisc(worldFolder, "Grass", 400, 4, -2, Color3.fromRGB(94, 186, 82), Enum.Material.Grass)
+	makeDisc(worldFolder, "Plaza", 64, 0.6, 0.3, Color3.fromRGB(158, 158, 164), Enum.Material.Concrete)
 
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "PlazaSpawn"
@@ -83,8 +83,9 @@ function WorldBuilder.Build()
 		local plotFolder = Instance.new("Folder")
 		plotFolder.Name = "Plot" .. index
 		plotFolder.Parent = worldFolder
-		makePart(plotFolder, "Trim", Vector3.new(49, 0.5, 49), plotCFrame * CFrame.new(0, 0.25, 0), trimColor)
+		makePart(plotFolder, "Trim", Vector3.new(49, 0.5, 49), plotCFrame * CFrame.new(0, 0.25, 0), trimColor, Enum.Material.Neon)
 		local platform = makePart(plotFolder, "Platform", Vector3.new(46, 1.2, 46), plotCFrame * CFrame.new(0, 0.85, 0), color)
+		local walls = {}
 		for _, wallData in ipairs({
 			{ Vector3.new(0.6, 7, 47), CFrame.new(-23.4, 4.7, 0) },
 			{ Vector3.new(0.6, 7, 47), CFrame.new(23.4, 4.7, 0) },
@@ -94,10 +95,13 @@ function WorldBuilder.Build()
 			local wall = makePart(plotFolder, "SafeWall", wallData[1], plotCFrame * wallData[2], color)
 			wall.Transparency = 0.78
 			wall.CanCollide = false
+			table.insert(walls, wall)
 		end
 		makePart(plotFolder, "OwnerSignPost", Vector3.new(0.6, 4.4, 0.6), plotCFrame * CFrame.new(0, 3.6, 19), Color3.fromRGB(105, 80, 60))
 		local signBoard = makePart(plotFolder, "OwnerSignBoard", Vector3.new(11, 3.4, 0.5), plotCFrame * CFrame.new(0, 6.2, 19), Color3.fromRGB(60, 50, 45))
 		local _, signText = makeBillboard(signBoard, "OwnerSign", "EMPTY BASE", Vector2.new(240, 60), 20)
+		makePart(plotFolder, "LockPost", Vector3.new(0.45, 2.4, 0.45), plotCFrame * CFrame.new(7.5, 2.65, -19), Color3.fromRGB(70, 70, 78))
+		local lockButton = makePart(plotFolder, "LockButton", Vector3.new(1.7, 0.45, 1.7), plotCFrame * CFrame.new(7.5, 4.05, -19), Color3.fromRGB(255, 200, 40), Enum.Material.Neon)
 		local pads = {}
 		for _, z in ipairs({ -8, 8 }) do
 			for _, x in ipairs({ -11.5, 0, 11.5 }) do
@@ -115,7 +119,32 @@ function WorldBuilder.Build()
 			SignText = signText,
 			SpawnPosition = plotCFrame * Vector3.new(0, 3.2, -17),
 			Folder = plotFolder,
+			Walls = walls,
+			WallColor = color,
+			LockButton = lockButton,
 		}
+	end
+
+	-- Dressing: cobblestone paths from the plaza to every base, glowing lamps, bushes.
+	for index = 1, 8 do
+		local angle = math.rad((index - 1) * 45)
+		local mid = Vector3.new(math.sin(angle) * 68, 0.1, math.cos(angle) * 68)
+		local path = makePart(worldFolder, "Path", Vector3.new(6, 0.2, 74), CFrame.lookAt(mid, Vector3.new(0, 0.1, 0)), Color3.fromRGB(178, 164, 140), Enum.Material.Cobblestone)
+		path.CanCollide = false
+	end
+	for index = 1, 6 do
+		local angle = math.rad((index - 1) * 60 + 30)
+		local x, z = math.sin(angle) * 40, math.cos(angle) * 40
+		makePart(worldFolder, "LampPost", Vector3.new(0.35, 7, 0.35), CFrame.new(x, 3.5, z), Color3.fromRGB(50, 50, 58))
+		local lamp = makePart(worldFolder, "LampGlow", Vector3.new(1.15, 1.15, 1.15), CFrame.new(x, 7.3, z), Color3.fromRGB(255, 236, 180), Enum.Material.Neon)
+		lamp.Shape = Enum.PartType.Ball
+		lamp.CanCollide = false
+	end
+	for index = 1, 12 do
+		local angle = math.rad((index - 1) * 30 + 15)
+		local radius = rollBetween(146, 182)
+		local bush = makePart(worldFolder, "Bush", Vector3.new(rollBetween(2.4, 4), rollBetween(1.8, 3), rollBetween(2.4, 4)), CFrame.new(math.sin(angle) * radius, 0.6, math.cos(angle) * radius), Color3.fromRGB(52, 140, 60))
+		bush.Shape = Enum.PartType.Ball
 	end
 
 	math.randomseed(2026)

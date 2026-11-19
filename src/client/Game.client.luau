@@ -119,7 +119,7 @@ hintLabel.Position = UDim2.new(0.5, 0, 1, -10)
 hintLabel.Size = UDim2.new(0, 760, 0, 26)
 hintLabel.TextSize = 15
 hintLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
-hintLabel.Text = "Grab brainrots in the meadow → carry them to YOUR base pads → hatch eggs at the plaza shop!"
+hintLabel.Text = "Grab or STEAL brainrots → carry them to YOUR base pads → lock your base, hatch eggs, dodge the tsunami!"
 
 local function formatCash(n)
 	n = math.floor(n)

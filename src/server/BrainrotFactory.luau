@@ -38,17 +38,25 @@ local function makeNameTag(parent, title, subtitle, color, topY)
 	return billboard
 end
 
-function BrainrotFactory.CreateFigure(def, gold)
+local MUTATION_TINTS = {
+	Gold = { Color = Color3.fromRGB(255, 190, 40), Material = Enum.Material.Metal, Transparency = 0 },
+	Diamond = { Color = Color3.fromRGB(140, 225, 255), Material = Enum.Material.Glass, Transparency = 0.15 },
+	Rainbow = { Color = Color3.fromRGB(255, 90, 90), Material = Enum.Material.SmoothPlastic, Transparency = 0 },
+}
+
+function BrainrotFactory.CreateFigure(def, mutation)
 	if type(def) ~= "table" or type(def.Parts) ~= "table" or #def.Parts == 0 then
 		return nil
 	end
+	local tint = mutation and MUTATION_TINTS[mutation] or nil
 	local model = Instance.new("Model")
 	model.Name = def.Id
 	local topY = 0
 	local rootPart
 	for index, spec in ipairs(def.Parts) do
 		local part = Instance.new("Part")
-		part.Name = spec.Name or ("Part" .. index)
+		local tinted = tint ~= nil and not spec.KeepColor
+		part.Name = tinted and "TintPart" or (spec.Name or ("Part" .. index))
 		if spec.Shape == "Ball" then
 			part.Shape = Enum.PartType.Ball
 		elseif spec.Shape == "Cylinder" then
@@ -57,9 +65,9 @@ function BrainrotFactory.CreateFigure(def, gold)
 			part.Shape = Enum.PartType.Block
 		end
 		part.Size = spec.Size
-		part.Color = if gold and not spec.KeepColor then Color3.fromRGB(255, 190, 40) else spec.Color
-		part.Material = if gold and not spec.KeepColor then Enum.Material.Metal else (spec.Material or Enum.Material.SmoothPlastic)
-		part.Transparency = spec.Transparency or 0
+		part.Color = tinted and tint.Color or spec.Color
+		part.Material = tinted and tint.Material or (spec.Material or Enum.Material.SmoothPlastic)
+		part.Transparency = tinted and tint.Transparency or (spec.Transparency or 0)
 		part.Anchored = true
 		part.CanCollide = false
 		part.CanQuery = false
@@ -77,13 +85,39 @@ function BrainrotFactory.CreateFigure(def, gold)
 		return nil
 	end
 	model.PrimaryPart = rootPart
-	local effectiveIncome = def.Income * (gold and Config.GOLD_INCOME_MULTIPLIER or 1)
-	makeNameTag(rootPart, (gold and "★ " or "") .. def.Name, string.format("$%d/s", effectiveIncome), def.RarityColor, topY)
+	-- A simple friendly face on the front (-Z) of the root part: two eyes and a smile.
+	local rootSpec = def.Parts[1]
+	local rs, ro = rootSpec.Size, rootSpec.Offset
+	local faceZ = ro.Z - rs.Z / 2
+	local function facePart(shape, size, offset, color)
+		local p = Instance.new("Part")
+		p.Name = "FacePart"
+		p.Shape = shape
+		p.Size = size
+		p.Color = color
+		p.Material = Enum.Material.SmoothPlastic
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CFrame = CFrame.new(offset)
+		p.Parent = model
+		return p
+	end
+	for _, side in ipairs({ -1, 1 }) do
+		local eyePos = Vector3.new(ro.X + side * rs.X * 0.21, ro.Y + rs.Y * 0.16, faceZ - 0.04)
+		facePart(Enum.PartType.Ball, Vector3.new(0.26, 0.26, 0.26), eyePos, Color3.new(1, 1, 1))
+		facePart(Enum.PartType.Ball, Vector3.new(0.13, 0.13, 0.13), eyePos + Vector3.new(0, 0, -0.1), Color3.fromRGB(15, 15, 20))
+	end
+	facePart(Enum.PartType.Block, Vector3.new(math.max(0.3, rs.X * 0.3), 0.09, 0.06), Vector3.new(ro.X, ro.Y - rs.Y * 0.17, faceZ - 0.04), Color3.fromRGB(15, 15, 20))
+	local multiplier = mutation and Config.MUTATIONS[mutation] and Config.MUTATIONS[mutation].Multiplier or 1
+	local effectiveIncome = def.Income * multiplier
+	makeNameTag(rootPart, (mutation and "★ " or "") .. def.Name, string.format("$%d/s", effectiveIncome), def.RarityColor, topY)
 	model:SetAttribute("BrainrotId", def.Id)
 	model:SetAttribute("Rarity", def.Rarity)
 	model:SetAttribute("Income", effectiveIncome)
 	model:SetAttribute("Price", def.Price)
-	model:SetAttribute("Gold", gold == true)
+	model:SetAttribute("Mutation", mutation or "")
 	return model
 end
 
