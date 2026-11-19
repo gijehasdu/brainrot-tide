@@ -4,7 +4,7 @@
     "$className": "DataModel",
     "Players": {
       "$properties": {
-        "CharacterAutoLoads": false
+        "CharacterAutoLoads": true
       }
     },
     "ServerScriptService": {

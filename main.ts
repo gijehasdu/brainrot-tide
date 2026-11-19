@@ -1,3 +1,4 @@
+// Brainrot Tide: the game code lives in src/ (Luau) and the place is built with Rojo; this program only hands it in.
 // A working roblox-brainrot-01 entry (Node 22, standard library only): the game is this directory's Rojo
 // project, built into game.rbxl with `rojo build default.project.json --output game.rbxl`, and the program
 // hands it in. It copies game.rbxl, src/, screenshots/ and PLAY.json from beside this file to /output and

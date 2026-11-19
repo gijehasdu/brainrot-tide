@@ -1,21 +1,45 @@
-# roblox-brainrot-01 starter
+# Brainrot Tide
 
-A working entry for make.fun's "Make the best AI Roblox brainrot game" bounty (roblox-brainrot-01), laid out as your
-repository: a Rojo project whose game is a grey square that moves with the arrow keys. It is a starting point, not a
-winner, and not yet the 3D game the bounty asks for: its square is drawn on the screen, not in Roblox's 3D world.
+Brainrot Tide is a 3D Steal-a-Brainrot-style game for Roblox: absurd characters wander a tidal island meadow; grab them, carry them home, and set them on your base pads to earn cash every second; hatch eggs, chase rarities and gold mutations, and rebirth for permanent income. When the tsunami warning sounds, run: the wave takes whatever you are carrying in the open.
 
-- `main.ts` (Node 22, standard library only) hands the game in: it copies `game.rbxl`, `src/`, `screenshots/` and
-  `PLAY.json` to `/output`, leaving out every name that starts with a dot (such as `.gitkeep` or `.DS_Store`, which
-  fail an entry), and writes `/output/dossier.json` with `vendor/makefun-roblox.ts`, the kit's copy, unchanged.
-- `game.rbxl` is the place Rojo builds from `src/` and `default.project.json`; `screenshots/` holds three captures of
-  it; `PLAY.json` names no place yet, so the gate refuses the starter as it stands until it names your published one.
-- One of your screenshots must also be your game's first thumbnail on Roblox: the same picture, uploaded on the
-  Creator Dashboard with your game's icon.
-- `TOUR.json` is an example of the optional tour: for each screenshot, the keys that bring the game to that screen.
+## How to play
 
-Run it as the grader does, writing `out/` in place of `/output`:
+- Grab brainrots in the meadow and carry them home; carrying makes you slower.
+- Place brainrots on one of your six base pads to earn income every second.
+- Sell brainrots directly from their pad when you want cash back.
+- Buy eggs at the plaza shop in three tiers to hatch new characters.
+- Rebirth at the shrine to reset your progress for permanent income bonuses.
+- A tsunami arrives about every 90 seconds. Bases and the plaza are safe; the open meadow is not.
 
-    mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
+## The cast
 
-The rules are on the bounty's page (/bounty/roblox-brainrot-01) and in the kit's RULES.txt,
-which gives every command in order (Before you submit, then Enter).
+The rarity ladder is Common < Uncommon < Rare < Epic < Legendary < Mythic. Meet 12 original characters: Croissant Boxer, Toaster Pup, Shark in Sneakers, Banana Butler, Cactus Cowboy, Fridge Penguin, Disco Mushroom, Robo Noodle, Dragon Taco, Wizard Baguette, Galaxy Lobster, and TV Head Titan. Any character can appear with a gold mutation (4% chance), which pays 5x its normal income.
+
+## Under the hood
+
+Everything is procedural: the island, bases, characters, and eggs are built from Parts by Luau code at runtime, with no toolbox assets. The module map is:
+
+- `Config` — character, rarity, egg, and game balance data.
+- `BrainrotFactory` — builds the figures and eggs.
+- `WorldBuilder` — builds the island and its world layout.
+- `PlayerData` — leaderstats and pcall-guarded DataStore persistence.
+- `init.server` — gameplay, economy, and tsunami systems.
+- `client/Game.client` — the HUD.
+
+The economy is server-authoritative. DataStore saves Cash, Rebirths, and your placed roster.
+
+## Build and hand in
+
+Build the Roblox place with Rojo:
+
+```sh
+rojo build default.project.json --output game.rbxl
+```
+
+Then run the hand-in command from the project root:
+
+```sh
+mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
+```
+
+`PLAY.json` names the published place. This project is licensed under MIT; see [LICENSE](LICENSE).
