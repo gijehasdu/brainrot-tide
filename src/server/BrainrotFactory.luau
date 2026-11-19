@@ -53,6 +53,8 @@ function BrainrotFactory.CreateFigure(def, mutation)
 	model.Name = def.Id
 	local topY = 0
 	local rootPart
+	local rootSize, rootOffset = nil, nil
+	local S = 1.3 -- figures read small in-world; scale them up uniformly
 	for index, spec in ipairs(def.Parts) do
 		local part = Instance.new("Part")
 		local tinted = tint ~= nil and not spec.KeepColor
@@ -64,7 +66,7 @@ function BrainrotFactory.CreateFigure(def, mutation)
 		else
 			part.Shape = Enum.PartType.Block
 		end
-		part.Size = spec.Size
+		part.Size = spec.Size * S
 		part.Color = tinted and tint.Color or spec.Color
 		part.Material = tinted and tint.Material or (spec.Material or Enum.Material.SmoothPlastic)
 		part.Transparency = tinted and tint.Transparency or (spec.Transparency or 0)
@@ -73,12 +75,13 @@ function BrainrotFactory.CreateFigure(def, mutation)
 		part.CanQuery = false
 		part.CanTouch = false
 		local rotation = spec.Rotation or Vector3.zero
-		part.CFrame = CFrame.new(spec.Offset) * CFrame.Angles(math.rad(rotation.X), math.rad(rotation.Y), math.rad(rotation.Z))
+		part.CFrame = CFrame.new(spec.Offset * S) * CFrame.Angles(math.rad(rotation.X), math.rad(rotation.Y), math.rad(rotation.Z))
 		part.Parent = model
 		if index == 1 then
 			rootPart = part
+			rootSize, rootOffset = spec.Size * S, spec.Offset * S
 		end
-		topY = math.max(topY, spec.Offset.Y + spec.Size.Y / 2)
+		topY = math.max(topY, (spec.Offset.Y + spec.Size.Y / 2) * S)
 	end
 	if not rootPart then
 		model:Destroy()
@@ -86,8 +89,7 @@ function BrainrotFactory.CreateFigure(def, mutation)
 	end
 	model.PrimaryPart = rootPart
 	-- A simple friendly face on the front (-Z) of the root part: two eyes and a smile.
-	local rootSpec = def.Parts[1]
-	local rs, ro = rootSpec.Size, rootSpec.Offset
+	local rs, ro = rootSize, rootOffset
 	local faceZ = ro.Z - rs.Z / 2
 	local function facePart(shape, size, offset, color)
 		local p = Instance.new("Part")
@@ -105,11 +107,11 @@ function BrainrotFactory.CreateFigure(def, mutation)
 		return p
 	end
 	for _, side in ipairs({ -1, 1 }) do
-		local eyePos = Vector3.new(ro.X + side * rs.X * 0.21, ro.Y + rs.Y * 0.16, faceZ - 0.04)
-		facePart(Enum.PartType.Ball, Vector3.new(0.26, 0.26, 0.26), eyePos, Color3.new(1, 1, 1))
-		facePart(Enum.PartType.Ball, Vector3.new(0.13, 0.13, 0.13), eyePos + Vector3.new(0, 0, -0.1), Color3.fromRGB(15, 15, 20))
+		local eyePos = Vector3.new(ro.X + side * rs.X * 0.21, ro.Y + rs.Y * 0.16, faceZ - 0.05)
+		facePart(Enum.PartType.Ball, Vector3.new(0.34, 0.34, 0.34), eyePos, Color3.new(1, 1, 1))
+		facePart(Enum.PartType.Ball, Vector3.new(0.17, 0.17, 0.17), eyePos + Vector3.new(0, 0, -0.13), Color3.fromRGB(15, 15, 20))
 	end
-	facePart(Enum.PartType.Block, Vector3.new(math.max(0.3, rs.X * 0.3), 0.09, 0.06), Vector3.new(ro.X, ro.Y - rs.Y * 0.17, faceZ - 0.04), Color3.fromRGB(15, 15, 20))
+	facePart(Enum.PartType.Block, Vector3.new(math.max(0.39, rs.X * 0.3), 0.12, 0.08), Vector3.new(ro.X, ro.Y - rs.Y * 0.17, faceZ - 0.05), Color3.fromRGB(15, 15, 20))
 	local multiplier = mutation and Config.MUTATIONS[mutation] and Config.MUTATIONS[mutation].Multiplier or 1
 	local effectiveIncome = def.Income * multiplier
 	makeNameTag(rootPart, (mutation and "★ " or "") .. def.Name, string.format("$%d/s", effectiveIncome), def.RarityColor, topY)

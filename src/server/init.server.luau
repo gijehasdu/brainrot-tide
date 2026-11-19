@@ -529,7 +529,7 @@ RunService.Heartbeat:Connect(function(dt)
 		if entry.CarriedBy then
 			local character = entry.CarriedBy.Character
 			local head = character and character:FindFirstChild("Head")
-			if head then entry.Model:PivotTo(CFrame.new(head.Position + Vector3.new(0, 3, 0)) * head.CFrame.Rotation) end
+			if head then entry.Model:PivotTo(CFrame.new(head.Position + Vector3.new(0, 3.3, 0)) * head.CFrame.Rotation) end
 		elseif now >= entry.PauseUntil then
 			local current = entry.Model:GetPivot().Position
 			local offset = Vector3.new(entry.TargetPos.X - current.X, 0, entry.TargetPos.Z - current.Z)
