@@ -185,3 +185,205 @@ noticeRemote.OnClientEvent:Connect(function(message)
 		end
 	end)
 end)
+
+-- ===== Top-right icon buttons: shop + settings, with music control =====
+local buyRemote = remotes:WaitForChild("BuyRequest")
+local catalogRemote = remotes:WaitForChild("GetCatalog")
+local SoundService = game:GetService("SoundService")
+local Lighting = game:GetService("Lighting")
+
+local buttonRow = Instance.new("Frame")
+buttonRow.Name = "ButtonRow"
+buttonRow.AnchorPoint = Vector2.new(1, 0)
+buttonRow.Position = UDim2.new(1, -10, 0, 64)
+buttonRow.Size = UDim2.new(0, 108, 0, 48)
+buttonRow.BackgroundTransparency = 1
+buttonRow.BorderSizePixel = 0
+buttonRow.Parent = gui
+local rowLayout = Instance.new("UIListLayout")
+rowLayout.FillDirection = Enum.FillDirection.Horizontal
+rowLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+rowLayout.Padding = UDim.new(0, 12)
+rowLayout.Parent = buttonRow
+
+local function makeIconButton(name, text)
+	local button = Instance.new("TextButton")
+	button.Name = name
+	button.Size = UDim2.new(0, 48, 0, 48)
+	button.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
+	button.BackgroundTransparency = 0.25
+	button.BorderSizePixel = 0
+	button.Font = Enum.Font.FredokaOne
+	button.TextSize = 22
+	button.TextColor3 = Color3.new(1, 1, 1)
+	button.Text = text
+	button.AutoButtonColor = true
+	button.Parent = buttonRow
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 24)
+	corner.Parent = button
+	return button
+end
+
+local function makePanel(name, size)
+	local panel = Instance.new("Frame")
+	panel.Name = name
+	panel.AnchorPoint = Vector2.new(0.5, 0.5)
+	panel.Position = UDim2.new(0.5, 0, 0.5, 0)
+	panel.Size = size
+	panel.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
+	panel.BackgroundTransparency = 0.08
+	panel.BorderSizePixel = 0
+	panel.Visible = false
+	panel.ZIndex = 5
+	panel.Parent = gui
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 14)
+	corner.Parent = panel
+	local title = makeLabel(panel, "Title")
+	title.Size = UDim2.new(1, 0, 0, 44)
+	title.TextSize = 20
+	title.ZIndex = 6
+	local close = Instance.new("TextButton")
+	close.Name = "CloseButton"
+	close.AnchorPoint = Vector2.new(1, 0)
+	close.Position = UDim2.new(1, -6, 0, 6)
+	close.Size = UDim2.new(0, 34, 0, 34)
+	close.BackgroundColor3 = Color3.fromRGB(205, 45, 45)
+	close.BorderSizePixel = 0
+	close.Font = Enum.Font.FredokaOne
+	close.TextSize = 16
+	close.TextColor3 = Color3.new(1, 1, 1)
+	close.Text = "✕"
+	close.ZIndex = 6
+	close.Parent = panel
+	local closeCorner = Instance.new("UICorner")
+	closeCorner.CornerRadius = UDim.new(0, 8)
+	closeCorner.Parent = close
+	close.Activated:Connect(function() panel.Visible = false end)
+	return panel, title
+end
+
+local shopPanel, shopTitle = makePanel("ShopPanel", UDim2.new(0, 460, 0, 420))
+shopTitle.Text = "🛒 BRAINROT SHOP"
+local shopScroll = Instance.new("ScrollingFrame")
+shopScroll.Name = "Items"
+shopScroll.Position = UDim2.new(0, 10, 0, 52)
+shopScroll.Size = UDim2.new(1, -20, 1, -62)
+shopScroll.BackgroundTransparency = 1
+shopScroll.BorderSizePixel = 0
+shopScroll.ScrollBarThickness = 6
+shopScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+shopScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+shopScroll.ZIndex = 5
+shopScroll.Parent = shopPanel
+local shopLayout = Instance.new("UIListLayout")
+shopLayout.Padding = UDim.new(0, 6)
+shopLayout.Parent = shopScroll
+
+local settingsPanel, settingsTitle = makePanel("SettingsPanel", UDim2.new(0, 320, 0, 176))
+settingsTitle.Text = "⚙️ SETTINGS"
+
+local function makeToggle(panel, y, text)
+	local button = Instance.new("TextButton")
+	button.AnchorPoint = Vector2.new(0.5, 0)
+	button.Position = UDim2.new(0.5, 0, 0, y)
+	button.Size = UDim2.new(1, -24, 0, 46)
+	button.BackgroundColor3 = Color3.fromRGB(40, 40, 56)
+	button.BorderSizePixel = 0
+	button.Font = Enum.Font.FredokaOne
+	button.TextSize = 17
+	button.TextColor3 = Color3.new(1, 1, 1)
+	button.Text = text
+	button.ZIndex = 6
+	button.Parent = panel
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 10)
+	corner.Parent = button
+	return button
+end
+
+local musicOn = true
+local musicToggle = makeToggle(settingsPanel, 56, "🎵 Music: ON")
+local music = SoundService:WaitForChild("BrainrotMusic", 15)
+musicToggle.Activated:Connect(function()
+	musicOn = not musicOn
+	musicToggle.Text = musicOn and "🎵 Music: ON" or "🎵 Music: OFF"
+	if music then
+		if musicOn then music:Play() else music:Pause() end
+	end
+end)
+
+local shadowsOn = true
+local shadowToggle = makeToggle(settingsPanel, 112, "🌑 Shadows: ON")
+shadowToggle.Activated:Connect(function()
+	shadowsOn = not shadowsOn
+	shadowToggle.Text = shadowsOn and "🌑 Shadows: ON" or "🌑 Shadows: OFF"
+	Lighting.GlobalShadows = shadowsOn
+end)
+
+local shopButton = makeIconButton("ShopButton", "🛒")
+local settingsButton = makeIconButton("SettingsButton", "⚙️")
+shopButton.Activated:Connect(function()
+	shopPanel.Visible = not shopPanel.Visible
+	settingsPanel.Visible = false
+end)
+settingsButton.Activated:Connect(function()
+	settingsPanel.Visible = not settingsPanel.Visible
+	shopPanel.Visible = false
+end)
+
+local function buildShopRows(catalog)
+	for _, item in ipairs(catalog) do
+		local row = Instance.new("Frame")
+		row.Size = UDim2.new(1, -4, 0, 54)
+		row.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
+		row.BorderSizePixel = 0
+		row.ZIndex = 5
+		row.Parent = shopScroll
+		local rowCorner = Instance.new("UICorner")
+		rowCorner.CornerRadius = UDim.new(0, 8)
+		rowCorner.Parent = row
+		local strip = Instance.new("Frame")
+		strip.Size = UDim2.new(0, 6, 1, 0)
+		strip.BackgroundColor3 = Color3.new(item.Color[1], item.Color[2], item.Color[3])
+		strip.BorderSizePixel = 0
+		strip.ZIndex = 5
+		strip.Parent = row
+		local stripCorner = Instance.new("UICorner")
+		stripCorner.CornerRadius = UDim.new(0, 8)
+		stripCorner.Parent = strip
+		local info = makeLabel(row, "Info")
+		info.Position = UDim2.new(0, 14, 0, 0)
+		info.Size = UDim2.new(1, -130, 1, 0)
+		info.TextSize = 15
+		info.TextXAlignment = Enum.TextXAlignment.Left
+		info.Text = string.format("%s\n%s · +$%d/s", item.Name, item.Rarity, item.Income)
+		info.ZIndex = 6
+		local buy = Instance.new("TextButton")
+		buy.AnchorPoint = Vector2.new(1, 0.5)
+		buy.Position = UDim2.new(1, -8, 0.5, 0)
+		buy.Size = UDim2.new(0, 100, 0, 36)
+		buy.BackgroundColor3 = Color3.fromRGB(60, 170, 80)
+		buy.BorderSizePixel = 0
+		buy.Font = Enum.Font.FredokaOne
+		buy.TextSize = 15
+		buy.TextColor3 = Color3.new(1, 1, 1)
+		buy.Text = "Buy " .. formatCash(item.Price)
+		buy.ZIndex = 6
+		buy.Parent = row
+		local buyCorner = Instance.new("UICorner")
+		buyCorner.CornerRadius = UDim.new(0, 8)
+		buyCorner.Parent = buy
+		buy.Activated:Connect(function()
+			buyRemote:FireServer(item.Id)
+		end)
+	end
+end
+
+task.spawn(function()
+	local ok, catalog = pcall(function() return catalogRemote:InvokeServer() end)
+	if ok and type(catalog) == "table" then
+		buildShopRows(catalog)
+	end
+end)

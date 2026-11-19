@@ -29,6 +29,13 @@ end
 local HudState = getRemote("HudState")
 local WaveState = getRemote("WaveState")
 local Notice = getRemote("Notice")
+local BuyRequest = getRemote("BuyRequest")
+local catalogRemote = remoteFolder:FindFirstChild("GetCatalog")
+if not catalogRemote then
+	catalogRemote = Instance.new("RemoteFunction")
+	catalogRemote.Name = "GetCatalog"
+	catalogRemote.Parent = remoteFolder
+end
 
 -- Lighting polish: warm afternoon light, shadows, a touch of bloom and haze.
 local Lighting = game:GetService("Lighting")
@@ -57,6 +64,18 @@ if not Lighting:FindFirstChildOfClass("SunRaysEffect") then
 	sunRays.Intensity = 0.06
 	sunRays.Spread = 0.7
 	sunRays.Parent = Lighting
+end
+
+-- Background music: an APM track from Roblox's Creator Store pool, licensed for experiences.
+local SoundService = game:GetService("SoundService")
+if not SoundService:FindFirstChild("BrainrotMusic") then
+	local music = Instance.new("Sound")
+	music.Name = "BrainrotMusic"
+	music.SoundId = "rbxassetid://1843404009"
+	music.Looped = true
+	music.Volume = 0.35
+	music.Parent = SoundService
+	music:Play()
 end
 
 local world = WorldBuilder.Build()
@@ -461,6 +480,40 @@ local function isInWild(position)
 	end
 	return true
 end
+
+catalogRemote.OnServerInvoke = function(player)
+	local list = {}
+	for _, def in ipairs(Config.CHARACTERS) do
+		local c = def.RarityColor
+		table.insert(list, {
+			Id = def.Id, Name = def.Name, Rarity = def.Rarity,
+			Income = def.Income, Price = def.Price, Color = { c.R, c.G, c.B },
+		})
+	end
+	return list
+end
+
+BuyRequest.OnServerEvent:Connect(function(player, characterId)
+	if type(characterId) ~= "string" then return end
+	local def = Config.CHARACTERS_BY_ID[characterId]
+	if not def then return end
+	local session = PlayerData.Get(player)
+	if not session then return end
+	if session.Cash < def.Price then
+		notice(player, "You need $" .. def.Price .. " for a " .. def.Name)
+		return
+	end
+	local _, freePad = findFreePad(player)
+	if not freePad then
+		notice(player, "No free pad on your base!")
+		return
+	end
+	PlayerData.AddCash(player, -def.Price)
+	local mutation = rollMutation()
+	if placeFigure(player, def, mutation) then
+		notice(player, "Bought " .. def.Name .. (mutation and (" ★ " .. string.upper(mutation) .. "!") or ""))
+	end
+end)
 
 setupPlotPrompts()
 setupLockPrompts()
