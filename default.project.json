@@ -1,5 +1,5 @@
 {
-  "name": "house-dodge",
+  "name": "brainrot-tide",
   "tree": {
     "$className": "DataModel",
     "Players": {
@@ -33,10 +33,19 @@
             0.38823
           ],
           "Locked": true,
-          "Position": [
+          "CFrame": [
             0,
-            -10,
-            0
+            -12,
+            0,
+            1,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            1
           ],
           "Size": [
             512,
